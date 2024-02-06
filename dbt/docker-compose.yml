@@ -1,0 +1,8 @@
+version: "3.9"
+
+services:
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-bigquery:1.7.2
+    volumes:
+      - .:/usr/app/dbt
+    command: -d run
