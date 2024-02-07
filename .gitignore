@@ -2,7 +2,7 @@
 .venv
 \creds
 *terraform*
-*\__pycache__
+\__pycache__
 .env
 *\logs
 *\data
