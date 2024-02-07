@@ -1,4 +1,8 @@
 \venv
+.venv
+\creds
+*terraform*
+*\__pycache__
 .env
 *\logs
 *\data
