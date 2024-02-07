@@ -4,14 +4,17 @@ from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.sensors.filesystem import FileSensor
 from airflow.exceptions import AirflowException
 from airflow.decorators import dag, task
+from airflow.providers.google.transfers.transfers import BigQueryInsertJobOperator, PandasDataFrameToCsvFileOperator
+
 
 
 from datetime import datetime, timedelta
-from typing import List
+from typing import Any, List
 from requests import Request, Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 import json
 import pendulum
+import pandas as pd
 
 
 now = pendulum.now()
@@ -19,7 +22,7 @@ now = pendulum.now()
 @dag(start_date=now, schedule="@hourly", catchup=False)
 def etl():
     @task()
-    def retrieve() -> dict:
+    def retrieve() -> Any:
         """
         Fetch data from CMC API.
         """
@@ -41,31 +44,62 @@ def etl():
         try:
             response = session.get(URL, params=PARAMS)
             data = json.loads(response.text)
-            print(data)
+            return data
         except (ConnectionError, Timeout, TooManyRedirects) as e:
             AirflowException(e)
 
 
     @task()
-    def to_df():
+    def to_df(data: Any) -> pd.DataFrame:
         """WIP
-        Convert nested JSON to flat dataframe.
+        Convert nested JSON to flat DataFrame.
         """
-        df = pd.to_df()
-        return df
+        flattened_data = pd.json_normalize(data['data'])
+        print(flattened_data)
+        return flattened_data
+
 
     @task()
-    def load(df):
+    def dataframe_to_csv(df: pd.DataFrame, path: str) -> str:
+        """
+        Write DataFrame to CSV.
+        """
+        df.to_csv(path, index=False)
+        return path
+
+
+    @task()
+    def load_to_bq(csv_file_path: str) -> Any:
         """
         WIP
         Load data to BigQuery 'raw' table.
         """
 
-        return 
+        configuration = {
+            'load': {
+                'sourceFormat': 'CSV',
+                'skip_leading_rows': 1,
+                'destinationTable': {
+                    'projectId': 'your_project_id',
+                    'datasetId': 'your_dataset_id',
+                    'tableId': 'your_table_id',
+                },
+            },
+        }
+
+        operator = BigQueryInsertJobOperator(
+            task_id='load_csv_to_bigquery',
+            configuration=configuration,
+            source_uris=[csv_file_path],
+        )
+        return operator.execute(context=None)
+
+    PATH = './data/flattened_api_data.csv'
 
     data = retrieve()
     df = to_df(data)
-    load(df)
+    csv = dataframe_to_csv(df, PATH)
+    load_to_bq(csv)
 
 
 etl()
