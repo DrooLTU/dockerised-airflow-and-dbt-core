@@ -57,6 +57,6 @@ resource "google_service_account_key" "system_service_account_key" {
 }
 
 output "service_account_credentials" {
-  value = google_service_account_key.system_service_account_key.private_key
+  value = base64decode(google_service_account_key.system_service_account_key.private_key)
   sensitive = true
 }
