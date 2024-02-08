@@ -24,13 +24,6 @@ resource "google_service_account" "system_service_account" {
   display_name = "System Service Account"
 }
 
-resource "google_project_iam_member" "service_account_member" {
-  project = var.project_id
-  role    = "roles/editor"
-
-  member = "serviceAccount:${google_service_account.system_service_account.email}"
-}
-
 resource "google_project_iam_member" "bigquery_role" {
   project = var.project_id
   role    = "roles/bigquery.dataEditor"
