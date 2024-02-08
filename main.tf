@@ -19,6 +19,20 @@ resource "google_bigquery_dataset" "raw_cmc_data" {
   project    = var.project_id
 }
 
+resource "google_storage_bucket" "m3s4_bucket" {
+  name          = "m3s4-standard-data-storage"
+  location      = var.region
+  force_destroy = true   # Be careful with this option; it enables deletion of non-empty buckets
+
+  storage_class = "STANDARD"
+
+  versioning {
+    enabled = false
+  }
+
+}
+
+
 resource "google_service_account" "system_service_account" {
   account_id   = "system-service-account"
   display_name = "System Service Account"
