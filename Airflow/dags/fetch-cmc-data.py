@@ -30,6 +30,7 @@ def cmc_api_etl():
         """
         Fetch data from CMC API.
         """
+
         URL = 'https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest'
         API_KEY = Variable.get("CMC_API_KEY")
         PARAMS = {
@@ -74,7 +75,6 @@ def cmc_api_etl():
         return file_path
 
 
-
     @task()
     def json_to_df(path: str) -> pd.DataFrame:
         """
@@ -98,11 +98,10 @@ def cmc_api_etl():
             )
         
 
-
     @task()
     def dataframe_to_csv(df: pd.DataFrame, path: str, file_name: str) -> str:
         """
-        Write DataFrame to CSV.
+        Writes pd.DataFrame to CSV.
         """
         file_path = os.path.join(path, file_name)
         df.to_csv(file_path, index=False)
@@ -112,6 +111,9 @@ def cmc_api_etl():
 
     @task 
     def dataframe_to_parquet(df: pd.DataFrame, path: str, file_name: str) -> str:
+        """
+        Converts pd.DataFrame to parquet.
+        """
         file_path = os.path.join(path, file_name)
         df.to_parquet(file_path) 
         return file_path
@@ -119,7 +121,9 @@ def cmc_api_etl():
 
     @task()
     def local_to_gcs(file_path: str, dist_file_name: str, bucket: str) -> str:
-
+        """
+        Loads local file into GCS bucket.
+        """
         dst_path = f'data/{dist_file_name}'
 
         operator = LocalFilesystemToGCSOperator(
@@ -137,7 +141,6 @@ def cmc_api_etl():
     @task()
     def gcs_to_bq(dst_path: str, table_id: str, **kwargs) -> Any:
         """
-        WIP
         Load data to BigQuery table.
         """
 
@@ -156,7 +159,6 @@ def cmc_api_etl():
         )
 
         return operator.execute(context=context)
-
 
 
     PATH = './data/'
