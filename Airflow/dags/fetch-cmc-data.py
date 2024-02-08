@@ -1,14 +1,16 @@
+import os
+
 from airflow import DAG, Dataset
 from airflow.models import Variable
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.sensors.filesystem import FileSensor
 from airflow.exceptions import AirflowException
 from airflow.decorators import dag, task
-from airflow.providers.google.transfers.transfers import BigQueryInsertJobOperator, PandasDataFrameToCsvFileOperator
+from airflow.providers.google.cloud.transfers.local_to_gcs import LocalFilesystemToGCSOperator
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 
 
-
-from datetime import datetime, timedelta
 from typing import Any, List
 from requests import Request, Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
@@ -18,19 +20,20 @@ import pandas as pd
 
 
 now = pendulum.now()
+SYMBOL = 'BTC'
 
 @dag(start_date=now, schedule="@hourly", catchup=False)
-def etl():
+def cmc_api_etl():
+
     @task()
-    def retrieve() -> Any:
+    def retrieve() -> str:
         """
         Fetch data from CMC API.
         """
-
         URL = 'https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest'
         API_KEY = Variable.get("CMC_API_KEY")
         PARAMS = {
-        'symbol':'BTC',
+        'symbol':SYMBOL,
         }
 
         HEADERS = {
@@ -43,64 +46,129 @@ def etl():
 
         try:
             response = session.get(URL, params=PARAMS)
-            data = json.loads(response.text)
+            data = response.text
             return data
         except (ConnectionError, Timeout, TooManyRedirects) as e:
-            AirflowException(e)
+            raise AirflowException(e)
 
 
     @task()
-    def to_df(data: Any) -> pd.DataFrame:
-        """WIP
-        Convert nested JSON to flat DataFrame.
+    def raw_to_local(filename: str, file_content: str, dir: str):
         """
-        flattened_data = pd.json_normalize(data['data'])
-        print(flattened_data)
-        return flattened_data
+        Saves a file to the specified directory.
+
+        Args:
+        filename: The name of the file to save.
+        file_content: The content of the file to save.
+        dir: The directory to save the file to.
+        """
+
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+
+        file_path = os.path.join(dir, filename)
+
+        with open(file_path, "w") as f:
+            f.write(file_content)
+
+        return file_path
+
 
 
     @task()
-    def dataframe_to_csv(df: pd.DataFrame, path: str) -> str:
+    def json_to_df(path: str) -> pd.DataFrame:
+        """
+        Reads a JSON file and flattens nested data.
+        Returns a DataFrame
+
+        Args:
+        path: path to JSON file.
+        """
+
+        if path.endswith(".json"):
+            with open(path, "r") as json_str:
+                data = json.load(json_str)
+                flattened_data = pd.json_normalize(data['data'], SYMBOL, sep='__')
+                print(flattened_data)
+                return flattened_data
+
+        else:
+            raise AirflowException(
+                f"Unsupported file format, expected JSON, got {path.split('.')[-1]}"
+            )
+        
+
+
+    @task()
+    def dataframe_to_csv(df: pd.DataFrame, path: str, file_name: str) -> str:
         """
         Write DataFrame to CSV.
         """
-        df.to_csv(path, index=False)
-        return path
+        file_path = os.path.join(path, file_name)
+        df.to_csv(file_path, index=False)
+
+        return file_path
+
+
+    @task 
+    def dataframe_to_parquet(df: pd.DataFrame, path: str, file_name: str) -> str:
+        file_path = os.path.join(path, file_name)
+        df.to_parquet(file_path) 
+        return file_path
 
 
     @task()
-    def load_to_bq(csv_file_path: str) -> Any:
+    def local_to_gcs(file_path: str, dist_file_name: str, bucket: str) -> str:
+
+        dst_path = f'data/{dist_file_name}'
+
+        operator = LocalFilesystemToGCSOperator(
+            task_id='local_to_gcs',
+            bucket=bucket,
+            src=file_path,
+            dst= dst_path
+        )
+
+        operator.execute(context=None)
+
+        return dst_path
+
+
+    @task()
+    def gcs_to_bq(dst_path: str, table_id: str, **kwargs) -> Any:
         """
         WIP
-        Load data to BigQuery 'raw' table.
+        Load data to BigQuery table.
         """
 
-        configuration = {
-            'load': {
-                'sourceFormat': 'CSV',
-                'skip_leading_rows': 1,
-                'destinationTable': {
-                    'projectId': 'your_project_id',
-                    'datasetId': 'your_dataset_id',
-                    'tableId': 'your_table_id',
-                },
-            },
-        }
-
-        operator = BigQueryInsertJobOperator(
-            task_id='load_csv_to_bigquery',
-            configuration=configuration,
-            source_uris=[csv_file_path],
+        context = kwargs.copy()
+        context.update({
+            "logical_date": pendulum.now(),
+        })
+    
+        operator = GCSToBigQueryOperator(
+            task_id='load_to_bq',
+            bucket='m3s4-standard-data-storage',
+            source_objects=[dst_path],
+            destination_project_dataset_table=f'{Variable.get("gcp_default_project_id")}.{Variable.get("bq_raw_dataset")}.{table_id}',
+            source_format='Parquet',
+            write_disposition="WRITE_APPEND",
         )
-        return operator.execute(context=None)
 
-    PATH = './data/flattened_api_data.csv'
+        return operator.execute(context=context)
 
+
+
+    PATH = './data/'
+    PARQUET_FILE_NAME = 'flattened_api_data_BTC.parquet'
     data = retrieve()
-    df = to_df(data)
-    csv = dataframe_to_csv(df, PATH)
-    load_to_bq(csv)
+    local_json_path = raw_to_local('raw_data.json', data, PATH)
+    df = json_to_df(local_json_path)
+    csv = dataframe_to_csv(df, PATH, 'flattened_api_data_BTC.csv')
+    parquet = dataframe_to_parquet(df, PATH, PARQUET_FILE_NAME)
+    dst_path = local_to_gcs(parquet, PARQUET_FILE_NAME, 'm3s4-standard-data-storage')
+    gcs_to_bq(dst_path, 'raw')
 
 
-etl()
+cmc_api_etl()
 
