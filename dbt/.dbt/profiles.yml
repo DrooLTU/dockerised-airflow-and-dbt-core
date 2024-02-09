@@ -1,0 +1,14 @@
+cmc_elt:
+  outputs:
+    dev:
+      dataset: dev_cmc_data
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      keyfile: /root/.dbt/turing-project-m3-s4-1591ea509586.json
+      location: EU
+      method: service-account
+      priority: interactive
+      project: turing-project-m3-s4
+      threads: 4
+      type: bigquery
+  target: dev

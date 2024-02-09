@@ -4,5 +4,6 @@ services:
   dbt:
     image: ghcr.io/dbt-labs/dbt-bigquery:1.7.2
     volumes:
-      - .:/usr/app/dbt
-    command: -d run
+      - ./cmc_elt:/usr/app/dbt
+      - ./.dbt:/root/.dbt
+    # command: -d run
