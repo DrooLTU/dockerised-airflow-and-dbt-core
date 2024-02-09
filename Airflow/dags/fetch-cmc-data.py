@@ -15,10 +15,10 @@ import pendulum
 import pandas as pd
 
 
-now = pendulum.now()
+START = pendulum.datetime(2024, 2, 8, tz="UTC")
 SYMBOL = 'BTC'
 
-@dag(start_date=now, schedule_interval='*/10 * * * *', catchup=False)
+@dag(start_date=START, schedule_interval='*/10 * * * *', catchup=False)
 def cmc_api_etl():
 
     @task(depends_on_past=False)
