@@ -22,10 +22,10 @@ import pandas as pd
 now = pendulum.now()
 SYMBOL = 'BTC'
 
-@dag(start_date=now, schedule="@hourly", catchup=False)
+@dag(start_date=now, schedule_interval='*/10 * * * *', catchup=False)
 def cmc_api_etl():
 
-    @task()
+    @task(depends_on_past=False)
     def retrieve() -> str:
         """
         Fetch data from CMC API.
@@ -53,7 +53,7 @@ def cmc_api_etl():
             raise AirflowException(e)
 
 
-    @task()
+    @task(depends_on_past=False)
     def raw_to_local(filename: str, file_content: str, dir: str):
         """
         Saves a file to the specified directory.
@@ -75,7 +75,7 @@ def cmc_api_etl():
         return file_path
 
 
-    @task()
+    @task(depends_on_past=False)
     def json_to_df(path: str) -> pd.DataFrame:
         """
         Reads a JSON file and flattens nested data.
@@ -98,7 +98,7 @@ def cmc_api_etl():
             )
         
 
-    @task()
+    @task(depends_on_past=False)
     def dataframe_to_csv(df: pd.DataFrame, path: str, file_name: str) -> str:
         """
         Writes pd.DataFrame to CSV.
@@ -109,7 +109,7 @@ def cmc_api_etl():
         return file_path
 
 
-    @task 
+    @task(depends_on_past=False)
     def dataframe_to_parquet(df: pd.DataFrame, path: str, file_name: str) -> str:
         """
         Converts pd.DataFrame to parquet.
@@ -119,7 +119,7 @@ def cmc_api_etl():
         return file_path
 
 
-    @task()
+    @task(depends_on_past=False)
     def local_to_gcs(file_path: str, dist_file_name: str, bucket: str) -> str:
         """
         Loads local file into GCS bucket.
@@ -138,7 +138,7 @@ def cmc_api_etl():
         return dst_path
 
 
-    @task()
+    @task(depends_on_past=False)
     def gcs_to_bq(dst_path: str, table_id: str, **kwargs) -> Any:
         """
         Load data to BigQuery table.
