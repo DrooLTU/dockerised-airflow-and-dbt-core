@@ -1,18 +1,14 @@
 import os
 
-from airflow import DAG, Dataset
 from airflow.models import Variable
-from airflow.operators.python import PythonOperator, BranchPythonOperator
-from airflow.sensors.filesystem import FileSensor
 from airflow.exceptions import AirflowException
 from airflow.decorators import dag, task
 from airflow.providers.google.cloud.transfers.local_to_gcs import LocalFilesystemToGCSOperator
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
-from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
 
 
-from typing import Any, List
-from requests import Request, Session
+from typing import Any
+from requests import Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 import json
 import pendulum
