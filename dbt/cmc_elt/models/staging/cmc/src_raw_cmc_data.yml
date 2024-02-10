@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: raw_cmc_data
+    database: turing-project-m3-s4
+    schema: raw_cmc_data
+    tables:
+      - name: raw
