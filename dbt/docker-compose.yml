@@ -6,4 +6,3 @@ services:
     volumes:
       - ./cmc_elt:/usr/app/dbt
       - ./.dbt:/root/.dbt
-    # command: -d run
