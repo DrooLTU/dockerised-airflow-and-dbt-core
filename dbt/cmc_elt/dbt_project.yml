@@ -40,3 +40,7 @@ models:
     marts:
       prices:
         +materialized: table
+
+    staging:
+      cmc:
+        +materialized: incremental
