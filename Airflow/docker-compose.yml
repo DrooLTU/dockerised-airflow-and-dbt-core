@@ -31,7 +31,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/airflow/data
     - ${AIRFLOW_PROJ_DIR:-.}/backups:/opt/airflow/backups
     - /var/run/docker.sock:/var/run/docker.sock
-    - shared-creds-volume:/opt/airflow/config/shared_creds
+    - shared-creds-volume:/opt/airflow/shared
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
