@@ -10,9 +10,7 @@ import pendulum
 import shutil
 
 START = pendulum.datetime(2024, 2, 8, tz="UTC")
-PROJECT_NAME = os.environ.get('COMPOSE_PROJECT_NAME') 
-script_path = os.path.abspath(__file__)
-project_directory = os.path.abspath(os.path.join(script_path, '..', '..'))
+PROJECT_NAME = os.environ.get('COMPOSE_PROJECT_NAME')
 
 @dag(dag_id='dbt-cmc-elt', start_date=START, schedule="@daily", catchup=False)
 def dbt_cmc_elt():
@@ -35,18 +33,18 @@ def dbt_cmc_elt():
     @task()
     def dbt_run():
         """
-        Executes 'dbt run'
+        Executes 'dbt -d run'
         """
 
         operator = DockerOperator(
             task_id="dbt_run_task",
             image="justinaslorjus/dbt_cmc_elt:0.1",
             trigger_rule="none_failed",
-            command=["docs serve"],
+            command=["-d", "run"],
             auto_remove=True,
             mount_tmp_dir=False,
             mounts=[
-                Mount(source=f"{PROJECT_NAME}_shared-creds-volume", target="/shared_creds", type="volume"),
+                Mount(source=f"airflow_shared-creds-volume", target="/shared_creds", type="volume"),
             ],
         )
 
