@@ -35,7 +35,7 @@ models:
     # Config indicated by + and applies to all files under models/example/
     intermediate:
       prices:
-        +materialized: table
+        +materialized: incremental
 
     marts:
       prices:
@@ -43,4 +43,4 @@ models:
 
     staging:
       cmc:
-        +materialized: incremental
+        +materialized: view

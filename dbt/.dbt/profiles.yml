@@ -1,10 +1,21 @@
 cmc_elt:
   outputs:
+    prod:
+      dataset: prod_cmc_data
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      keyfile: /shared_creds/gcp_default.json
+      location: US
+      method: service-account
+      priority: interactive
+      project: turing-project-m3-s4
+      threads: 4
+      type: bigquery
     dev:
       dataset: dev_cmc_data
       job_execution_timeout_seconds: 300
       job_retries: 1
-      keyfile: /shared_creds/gcp_default.json
+      keyfile: /root/.dbt/turing-project-m3-s4-1591ea509586.json
       location: US
       method: service-account
       priority: interactive
