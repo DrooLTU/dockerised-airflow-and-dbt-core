@@ -38,7 +38,7 @@ def dbt_cmc_elt():
 
         operator = DockerOperator(
             task_id="dbt_run_task",
-            image="justinaslorjus/dbt_cmc_elt:0.1",
+            image="justinaslorjus/dbt_cmc_elt:0.1.1",
             trigger_rule="none_failed",
             command=["-d", "run", "--target", "prod"],
             auto_remove=True,
