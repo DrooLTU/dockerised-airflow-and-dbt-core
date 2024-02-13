@@ -3,4 +3,4 @@
 # Exclude specific files or directories
 cmc_elt/logs/
 logs/
-turing-project-m3-s4-1591ea509586.json
+*/gcp_default.json
