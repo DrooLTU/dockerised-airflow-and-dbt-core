@@ -18,13 +18,13 @@ import pandas as pd
 START = pendulum.datetime(2024, 2, 8, tz="UTC")
 SYMBOLS = ['BTC', 'ETH']
 
-for SYMBOL in SYMBOLS:
-    dag_id = f'cmc_price_{SYMBOL}'
+for symbol in SYMBOLS:
+    dag_id = f'cmc_price_{symbol}'
     @dag(dag_id=dag_id, start_date=START, schedule_interval='*/10 * * * *', catchup=False)
     def cmc_api_etl():
 
         @task(depends_on_past=False)
-        def retrieve() -> str:
+        def retrieve(symbol: str) -> str:
             """
             Fetch data from CMC API.
             """
@@ -32,7 +32,7 @@ for SYMBOL in SYMBOLS:
             URL = 'https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest'
             API_KEY = Variable.get("CMC_API_KEY")
             PARAMS = {
-            'symbol':SYMBOL,
+            'symbol':symbol,
             }
 
             HEADERS = {
@@ -74,7 +74,7 @@ for SYMBOL in SYMBOLS:
 
 
         @task(depends_on_past=False)
-        def json_to_df(path: str) -> pd.DataFrame:
+        def json_to_df(path: str, symbol:str) -> pd.DataFrame:
             """
             Reads a JSON file and flattens nested data.
             Returns a DataFrame
@@ -86,7 +86,7 @@ for SYMBOL in SYMBOLS:
             if path.endswith(".json"):
                 with open(path, "r") as json_str:
                     data = json.load(json_str)
-                    flattened_data = pd.json_normalize(data['data'], SYMBOL, sep='__')
+                    flattened_data = pd.json_normalize(data['data'], symbol, sep='__')
                     columns_to_convert = ['circulating_supply', 'total_supply']
                     flattened_data[columns_to_convert] = flattened_data[columns_to_convert].astype(int)
                     print(flattened_data)
@@ -163,11 +163,11 @@ for SYMBOL in SYMBOLS:
 
 
         PATH = './data/'
-        PARQUET_FILE_NAME = f'flattened_api_data_{SYMBOL}.parquet'
-        data = retrieve()
-        local_json_path = raw_to_local(f'raw_data_{SYMBOL}.json', data, PATH)
-        df = json_to_df(local_json_path)
-        csv = dataframe_to_csv(df, PATH, f'flattened_api_data_{SYMBOL}.csv')
+        PARQUET_FILE_NAME = f'flattened_api_data_{symbol}.parquet'
+        data = retrieve(symbol)
+        local_json_path = raw_to_local(f'raw_data_{symbol}.json', data, PATH)
+        df = json_to_df(local_json_path, symbol)
+        csv = dataframe_to_csv(df, PATH, f'flattened_api_data_{symbol}.csv')
         parquet = dataframe_to_parquet(df, PATH, PARQUET_FILE_NAME)
         dst_path = local_to_gcs(parquet, PARQUET_FILE_NAME, 'm3s4-standard-data-storage')
         gcs_to_bq(dst_path, 'raw')
