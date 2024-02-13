@@ -1,6 +1,6 @@
 # Airflow & dbt, dockerised !
 
-This project is to serve as an example and teaching material on how to set up Airflow to run dbt tasks in a dockerised environment. There are quite a few challenges to face and some of the solutions might **not** be *'production ready'* as it is vastly dependant on variations which are out of scope for this project, such as internal standards, secret management and so on. The project also includes an example dag to fetch and load data from an API which was used to accumulate data for teaching purpose.
+This project is to serve as an example and teaching material on how to set up Airflow to run dbt tasks in a dockerised environment. There are quite a few challenges to face and some of the solutions might **not** be *'production ready'* as it is vastly dependant on variations which are out of scope for this project, such as internal standards, secret management and so on. The project also includes an example DAG to fetch and load data from an API which was used to accumulate data for teaching purpose.
 
 ## What is covered
 
@@ -81,7 +81,7 @@ This leads to one change that has to be made in one of the dags. Open 'Airflow/d
 # The learning part
 I will now write about the things there are to learn from this project. Even though the setup part alone has a learning curve I will try to explain why I did some things this way.
 ### The shared volume, again.
-Working with Docker alone can be a difficult task at first. It becomes even harder when there's a need to run docker images with a dockerised Airflow (inception deepens!). The biggest hurdle is how to pass files (like credential JSON files) to the container without having to build them into the image we want to run (the dbt image) as it can cause security issues, especially for public images. One solution that I figured out without 3rd party implementation is to have a folder under Airflow project structure, in this case the folder is called 'shared', bind it to a named docker volume (the 'shared-creds-volume'), and then have a task in the dag to copy over the files we need in the image launched by DockerOperator.
+Working with Docker alone can be a difficult task at first. It becomes even harder when there's a need to run docker images with a dockerised Airflow (inception deepens!). The biggest hurdle is how to pass files (like credential JSON files) to the container without having to build them into the image we want to run (the dbt image) as it can cause security issues, especially for public images. One solution that I figured out without 3rd party implementation is to have a folder under Airflow project structure, in this case the folder is called 'shared', bind it to a named docker volume (the 'shared-creds-volume'), and then have a task in the DAG to copy over the files we need in the image launched by DockerOperator.
 
 This is how it can be done:
 ```python
@@ -118,7 +118,7 @@ def  dbt_run():
 
 	operator.execute(context=None)
 ```
-Pay attention to the 'mounts'. You would think why not have the source to the keyfile path directly but the issue is you would have to hardcode the full path on the host machine because a dynamic path (like **os.abspath()** ) will point to an inner path of the Airflow container (*/opt/airflow/..*). And since we are running another container it will not have access to it.
+Pay attention to the 'mounts'. You would think why not have the source to the key file path directly but the issue is you would have to hardcode the full path on the host machine because a dynamic path (like **os.abspath()** ) will point to an inner path of the Airflow container (*/opt/airflow/..*). And since we are running another container it will not have access to it.
 But by mounting the named volume to the newly instantiated container we can access data from both containers. Target is matching to the path in 'profiles.yml' dbt file `keyfile: /shared_creds/gcp_default.json`. 
 Inspect the 'Airflow/dags/dbt-elt-cmc-data.py' file for full implementation. It could be improved by having sensors and using Airflow Variables in need of more sophistication.
 ### API data pipeline
@@ -143,7 +143,7 @@ F --> G[gcs_to_bq]
  
 I chose to use parquet files as they work better with BigQuery. It is possible to skip raw_to_local and df_to_csv steps but I like to have the output as files for debugging and inspection.
 
-If you open up the "fetch-cmc-data.py" dag file you may notice it is generating two dags dynamically:
+If you open up the "fetch-cmc-data.py" DAG file you may notice it is generating two DAGs dynamically:
 ```python
 SYMBOLS  = ['BTC', 'ETH']
 for  symbol  in  SYMBOLS:
@@ -151,12 +151,14 @@ for  symbol  in  SYMBOLS:
 	@dag(dag_id=dag_id, start_date=START, schedule_interval='*/10 * * * *', catchup=False)
 	def  cmc_api_etl():
 ```
-One dag per symbol in the list, so if there's a need to add more coins to keep track of it's as simple as adding it's symbol to the list. Of course there's many ways to improve even this small feature with Variables or reading from .env file and so on. For simplicity I just chose to have a hardcoded list.
-The interval is set to 10 minutes as I didn't want to run out of free API calls and can be reduced if there's a need of more frequent data - purchase of API plan can arise as free plan gives 10000 calls per month.
-Even though it's possible to pass multiple symbols in one call, I thought this can serve as an example for dynamic dag setup and also gives more control via the Airflow web panel. 
+One DAG is created for each symbol in the list. If there's a need to add more coins to keep track of, it's as simple as adding their symbols to the list. While there are various ways to enhance this feature, such as using Airflow Variables or reading from a .env file, for simplicity, I opted for a hardcoded list.
+
+The interval is set to 10 minutes to avoid exceeding free API call limits. If more frequent data is required, the interval can be reduced, but keep in mind that purchasing an API plan may become necessary, as the free plan allows for 10,000 calls per month.
+
+Although it's possible to pass multiple symbols in one call, I chose to set up individual DAGs for each symbol. This decision serves as an example of dynamic DAG setup and provides more control through the Airflow web panel.
 
 ## dbt
-Let's dive into the dbt models, some of the concepts, and how to debug it faster without having to run it through Airflow.
+We step into the dbt models, some of the concepts, and how to debug it faster without having to run it through Airflow.
 
 ### The layers
 
@@ -165,9 +167,10 @@ There are three layers in the project:
  - staging - loading the raw data to the warehouse.
  - intermediate - transformation layer.
  - marts - the top layer or the presentation layer.
-
-Let's talk a little about the staging layer. Typically you use it to load the data into the warehouse and nothing more but I am using BigQuery for the API data pipeline and dbt ELT pipeline. That's strange... It means we already have the data in the warehouse? And the simple answer is yes, we do. I just really like using BigQuery! However I still have the staging layer and a model. It is materialised as a view so it acts as a passthrough to the raw data table. 
-In the intermediate layer is where a couple of interesting things are happening. I implemented incremental load (yes, it's an overkill but good for practice and future-proofing) which led to surrogate key generation implementation. From the "code" point it seems quite simple:
+#### Staging
+Let's delve into the staging layer for a moment. Usually, it's employed solely for loading data into the warehouse, but in my case, with BigQuery serving as both the API data pipeline and the dbt ELT pipeline, things take a unique turn. It might seem peculiar; do we already have the data in the warehouse? The straightforward answer is yes, we do. I simply prefer leveraging BigQuery! Nevertheless, I maintain the staging layer and a model. This layer is materialized as a view, essentially serving as a pass-through to the raw data table.
+#### Intermediate
+In the intermediate layer is where a couple of interesting things are happening. I've implemented an incremental load (yes, it's a bit of an overkill, but it's good for practice and future-proofing), which subsequently necessitated the implementation of surrogate key generation. From a code perspective, it seems rather straightforward:
 ```sql
 select
 *,
@@ -178,13 +181,34 @@ from {{ ref ('stg_crypto_price')}}
 where last_updated > (select  max(last_updated) from {{ this }})
 {% endif %}
 ```
-But it's an essential part.
-## SmartyPants
+The incremental loading part is implemented as an option and you can disable it by changing the model materialization setting in the 'dbt_project.yml' file:
+```yml
+models:
+	cmc_elt:
+		intermediate:
+			prices:
+				+materialized: incremental #can be set to 'table' or 'view'.
+				+unique_key: 'surrogate_key'
+```
+As per dbt documentation:
 
-SmartyPants converts ASCII punctuation characters into "smart" typographic punctuation HTML entities. For example:
+> A `unique_key` enables updating existing rows instead of just appending new rows.
 
-|                |ASCII                          |HTML                         |
-|----------------|-------------------------------|-----------------------------|
-|Single backticks|`'Isn't this fun?'`            |'Isn't this fun?'            |
-|Quotes          |`"Isn't this fun?"`            |"Isn't this fun?"            |
-|Dashes          |`-- is en-dash, --- is em-dash`|-- is en-dash, --- is em-dash|
+So, the surrogate key may not be strictly necessary, given the low likelihood of data updates in the source table for this project. However, I have included it for the purpose of learning. I'm utilizing the 'dbt_utils' package to hash values from two columns: 'symbol' and 'last_updated.' It is advisable to include at least one column that is likely to vary with each API call, such as the timestamp of the last price update, along with one or more static value columns like 'symbol' in this case, to generate unique keys.
+
+This layer is intended to house the majority of data transformations before being ingested into the marts layer for presentation. Unfortunately, I have not identified or encountered a need for additional transformations on this data, aside from selecting the columns of interest.
+
+#### Marts
+For this project the marts layer models is very slim as there's not much to do with the data. Despite it, this would be the layer to aggregate the data into presentable tables or views. For example, imagine if we had social media API/scraper to collect data with posts containing the coin symbol. After doing some modelling to the data we could join it with the price data in a marts model called 'daily_user_sentiment', and have something like this:
+|date                | symbol               |price_usd_daily_low     |price_usd_daily_high        |posts_daily_count      |
+|----------------|-------------------------------|---------------------|--------------------|----------------------|
+|2024-01-01|ETH           |2465            |2586         |42135              |
+
+Clearly the posts count doesn't help much but having an ML model to analyse the posts and daily user sentiment then giving a score could. Then you would add this score to the model. This, however, is out of scope for the project.
+### Running dbt without Airflow for faster development
+You might have noticed there's two profiles set up in the `profiles.yml` file. One is for 'prod(uction)' (not really but let's imagine it is) and one for 'dev(elopment)'.
+When I want to work on the dbt part of the model, make changes, and test them, I really don't want to rebuild and republish the Docker image every time; that would be tedious! For this reason, we have a 'docker-compose.yml' file, which is equivalent to the Dockerfile but allows me to run `docker-compose run --rm dbt -d run` and similar commands for fast development iterations. This approach enables quick and efficient testing of changes in the dbt part of the model without the need to rebuild and republish the entire Docker image, streamlining the development process and enhancing overall productivity.
+The default profile target is set to 'dev' and the Airflow dag is set to target 'prod', so there's no risk of messing something up.
+**Just don't forget to copy the credential files!**
+
+***Consume this information with care; if available - always consult with a senior or superior in your team and adhere to the standards. I hope you found at least some of the information and/or code useful. Excelsior!***
