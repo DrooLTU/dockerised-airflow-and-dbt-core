@@ -50,7 +50,7 @@ def dbt_cmc_elt():
 
         operator.execute(context=None)
     
-    copy_task = copy_file('/opt/airflow/config/shared_creds/turing-project-m3-s4-1591ea509586.json', '/opt/airflow/shared/gcp_default.json')
+    copy_task = copy_file('/opt/airflow/config/shared_creds/gcp_default.json', '/opt/airflow/shared/gcp_default.json')
     dbt_run_task = dbt_run()
 
     copy_task >> dbt_run_task
