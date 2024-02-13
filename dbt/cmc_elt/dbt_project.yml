@@ -36,6 +36,7 @@ models:
     intermediate:
       prices:
         +materialized: incremental
+        +unique_key: 'surrogate_key'
 
     marts:
       prices:
