@@ -33,14 +33,14 @@ def dbt_cmc_elt():
     @task()
     def dbt_run():
         """
-        Executes 'dbt -d run'
+        Executes 'dbt -d run --target prod'
         """
 
         operator = DockerOperator(
             task_id="dbt_run_task",
             image="justinaslorjus/dbt_cmc_elt:0.1",
             trigger_rule="none_failed",
-            command=["-d", "run"],
+            command=["-d", "run", "--target", "prod"],
             auto_remove=True,
             mount_tmp_dir=False,
             mounts=[
