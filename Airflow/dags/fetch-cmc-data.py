@@ -81,6 +81,7 @@ for symbol in SYMBOLS:
 
             Args:
             path: path to JSON file.
+            symbol: coin symbol, eg: 'ETH'
             """
 
             if path.endswith(".json"):
@@ -103,6 +104,11 @@ for symbol in SYMBOLS:
         def dataframe_to_csv(df: pd.DataFrame, path: str, file_name: str) -> str:
             """
             Writes pd.DataFrame to CSV.
+
+            Args:
+            df: Pandas DataFrame.
+            path: path to save location.
+            file_name: name for the saved file.
             """
             file_path = os.path.join(path, file_name)
             df.to_csv(file_path, index=False)
@@ -114,6 +120,11 @@ for symbol in SYMBOLS:
         def dataframe_to_parquet(df: pd.DataFrame, path: str, file_name: str) -> str:
             """
             Converts pd.DataFrame to parquet.
+
+            Args:
+            df: Pandas DataFrame.
+            path: path to save location.
+            file_name: name for the saved file.
             """
             file_path = os.path.join(path, file_name)
             df.to_parquet(file_path) 
@@ -124,6 +135,11 @@ for symbol in SYMBOLS:
         def local_to_gcs(file_path: str, dist_file_name: str, bucket: str) -> str:
             """
             Loads local file into GCS bucket.
+
+            Args:
+            file_path: full path to the file to be uploaded.
+            dist_file_name: name for the file to be asve as in the bucket.
+            bucket: bucket id to upload to.
             """
             dst_path = f'data/{dist_file_name}'
 
@@ -143,6 +159,10 @@ for symbol in SYMBOLS:
         def gcs_to_bq(dst_path: str, table_id: str, **kwargs) -> Any:
             """
             Load data to BigQuery table.
+
+            Args:
+            dst_path: path to the file in the storage bucket.
+            table_id: id of the table to append data to.
             """
 
             context = kwargs.copy()

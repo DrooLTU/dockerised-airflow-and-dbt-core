@@ -1,6 +1,5 @@
 import os
 
-from airflow.models import Variable
 from airflow.decorators import dag, task
 
 from airflow.providers.docker.operators.docker import DockerOperator
@@ -21,7 +20,7 @@ def dbt_cmc_elt():
     @task()
     def copy_file(source_path: str, destination_path: str):
         """
-        This has to handle shared creds.
+        Copies the credential file to the shared named volume.
         """
         try:
             shutil.copy(source_path, destination_path)
