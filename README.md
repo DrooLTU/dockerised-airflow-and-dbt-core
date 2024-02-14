@@ -1,6 +1,6 @@
-# Airflow & dbt, dockerised !
+# Airflow & dbt core, dockerised !
 
-This project is to serve as an example and teaching material on how to set up Airflow to run dbt tasks in a dockerised environment. There are quite a few challenges to face and some of the solutions might **not** be *'production ready'* as it is vastly dependant on variations which are out of scope for this project, such as internal standards, secret management and so on. The project also includes an example DAG to fetch and load data from an API which was used to accumulate data for teaching purpose.
+This project is to serve as an example and teaching material on how to set up Airflow to run dbt tasks in a dockerised environment. There are quite a few challenges to face and some of the solutions might **not** be *'production ready'* as it is vastly dependant on variations which are out of scope for this project, such as internal standards, secret management and so on. The project also includes an example DAG to fetch and load data from an API which was used to accumulate data for teaching purpose. Anywhere I mention dbt - it refers to dbt core and not dbt cloud.
 
 ## What is covered
 
